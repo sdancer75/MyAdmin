@@ -1,0 +1,759 @@
+<%
+'---------------------------------------------------------------------------
+'
+'   Project:    UTE - (U)niversal ASP (T)able (E)ditor
+'
+'   Module:     UTE class - Form Functions
+'
+'   Version:    3.00
+'
+'   Comments:   This module does the following things:
+'                   1. defines all functions being needed in
+'                      form view mode
+'
+'---------------------------------------------------------------------------
+'
+'   (c) in 2000-2003 by Tom Wellige                    
+'   http://www.wellige.com  mailto:tom@wellige.com     
+'                                               
+'   This project is released under the "GNU General Public License (GPL)" 
+'   http://www.gnu.org/licenses/gpl.html
+'
+'   and is maintained on SourceForge at
+'   http://sourceforge.net/projects/ute-asp/
+'
+'   and can also be found on CodeProject at
+'   http://www.codeproject.com/asp/ute.asp
+'
+'---------------------------------------------------------------------------
+
+
+
+''--------------------------------------------------------------------------
+'' Name:     getSQLStatement
+''           ==================
+'' 
+'' Returns SQL Statement to select/delete specific record. The statement is
+'' compiled by the hidden form "ident" fields.
+''
+'' Parameter: 
+''      sCmd        "select *" or "delete"
+''
+'' return value:
+''      string
+''
+''--------------------------------------------------------------------------
+Private Function getSQLStatement ( sCmd )
+    Dim i
+    Dim bFirst
+    Dim sSQL, sField, nType, sValue
+    Dim curField
+
+    i = 1
+    bFirst = True
+    sSQL = sCmd & " FROM " & m_sTable
+    while Request.Form(sFormUTEFieldPrefix & sFormIdentField & CStr(i)) <> ""
+        sField = Request.Form(sFormUTEFieldPrefix & sFormIdentField & CStr(i))
+        nType  = CInt(Request.Form(sFormUTEFieldPrefix & sFormIdentType & CStr(i)))
+        sValue = Request.Form(sFormUTEFieldPrefix & sFormIdentValue & CStr(i))
+        Set curField = m_RS(sField)
+        sSQL = sSQL & AddWhere (sField, nType, sValue, "=", "AND", bFirst)
+        bFirst = False
+        i = i + 1
+    wend
+
+    getSQLStatement = sSQL
+
+End Function
+
+
+''--------------------------------------------------------------------------
+'' Name:     IsErrorField
+''           ============
+'' 
+'' Is this an Error Field ?
+''
+'' Parameter: 
+''      sName       name of field to be checked
+''
+'' return value:
+''      boolean
+''
+''--------------------------------------------------------------------------
+Private Function IsErrorField ( sName )
+    Dim i, bReturn
+    bReturn = False
+    for i = 1 to UBound(m_ErrorField)
+        if m_ErrorField(i) = sName then bReturn = True
+    next
+    IsErrorField = bReturn
+End Function
+
+
+''--------------------------------------------------------------------------
+'' Name:     GetErrorNumber
+''           ==============
+'' 
+'' Returns the Error Description
+''
+'' Parameter: 
+''      sName       name of field the err descr. should be returned
+''
+'' return value:
+''      string
+''
+''--------------------------------------------------------------------------
+Private Function GetErrorDescription ( sName )
+    Dim i, sReturn
+    sReturn = ""
+    for i = 1 to UBound(m_ErrorField)
+        if m_ErrorField(i) = sName then sReturn = sReturn & m_ErrorMessage(i) & "<br>"
+    next
+    ' cut traling <br>
+    if sReturn <> "" then sReturn = Left(sReturn, Len(sReturn)-4)
+    GetErrorDescription = sReturn
+End Function
+
+
+''--------------------------------------------------------------------------
+'' Name:     PutError
+''           ========
+'' 
+'' Put Error into Error Management
+''
+'' Parameter: 
+''      errField        name of field that returns an error
+''      errNumber       error number
+''      errMessage      error description
+''
+'' return value:
+''      none
+''
+''--------------------------------------------------------------------------
+Private Sub PutError ( errField )
+    Dim e
+    Dim nError
+    ' the errors collections of the connection object contains all occured errors
+    For Each e In m_DB.Errors
+        nError = UBound(m_ErrorField) + 1
+        Redim Preserve m_ErrorField(nError)
+        m_ErrorField(nError)   = errField
+        Redim Preserve m_ErrorMessage(nError)
+        m_ErrorMessage(nError) = e.Description
+    Next
+    Err.Clear
+    m_DB.Errors.Clear
+End Sub
+
+
+''--------------------------------------------------------------------------
+'' Name:     InsertFieldForm
+''           ===============
+'' 
+'' Return HTML code for a single field (incl, heading, form element and definitions
+''
+'' Parameter: 
+''      field           field object
+''      bPrimaryKey     this is a primary key field
+''
+'' return value:
+''      string          HTML code
+''
+''--------------------------------------------------------------------------
+Private Function InsertFieldForm ( field, bPrimaryKey )
+
+    Dim sReturn, sValue
+    Dim sStyle, sStyleForm
+    Dim nSize, nMaxLength
+    Dim nMemoCols, nMemoRows
+    Dim sChecked
+
+    sStyle = "ute_header"
+    if bPrimaryKey then sStyle = sStyle & "_pk"
+
+    sStyleForm = "ute_form_value"
+    if IsErrorField (field.name) then sStyleForm = "ute_form_error"
+
+    ' field value
+    if m_bSubmitted then
+        if bPrimaryKey then
+            if IsNull(field.value) then
+                sValue = ""
+            else
+                select case field.type
+                    case else
+                        sValue = CStr(field.value)
+                end select
+            end if
+        else
+            sValue = Trim(Request.Form(field.name))
+        end if
+    else
+        if IsNull(field.value) then
+            sValue = ""
+        else
+            select case field.type
+                case else
+                    sValue = CStr(field.value)
+            end select
+        end if
+    end if
+    ' html endcode field value
+    sValue = Server.HTMLEncode(sValue)
+
+    sReturn  = _
+        "<tr>" & _
+        "<td class=""" & sStyle & """>" & field.name & "</td>" & _
+        "<td class=""" & sStyleForm & """>"
+
+    if  (NotAttrib(field.Attributes, adFldUpdatable) and NotAttrib(field.Attributes, adFldUnknownUpdatable)) or _ 
+        ((NotAttrib(field.Attributes, adFldUpdatable) and bPrimaryKey)) or _
+        (m_nFormMode = MD_DELETE) then 
+        ' this field is not editable
+
+        if IsExcluded(field.type) then
+            ' this field is not editable by ute
+            sReturn = sReturn & _
+                "<img src=""" & m_sIMAGEDir & "exclude.gif"" border=""0"" alt=""" & STR_NON_VIEW & """ " & _
+                "width=""16"" height=""16"">"
+        else
+            ' display field value
+            sReturn = sReturn & sValue
+        end if
+    else
+        ' this field is editable
+
+        select case field.type
+            ' VARCHAR
+            case adBSTR, adVariant, adChar, adVarChar, adWChar, adVarWChar
+                nMaxLength = field.DefinedSize
+                if nMaxLength > DEF_MAX_INPUT_LENGTH then 
+                    nSize = DEF_MAX_INPUT_LENGTH
+                else
+                    nSize = nMaxLength
+                end if
+
+            ' MEMO
+            case adLongVarChar, adLongVarWChar
+                nMemoCols = DEF_MEMO_COLS
+                nMemoRows = DEF_MEMO_ROWS
+
+            ' ELSE 
+            case else
+                nMaxLength = field.Precision
+                if nMaxLength > DEF_MAX_INPUT_LENGTH then
+                    nSize = DEF_MAX_INPUT_LENGTH
+                else
+                    nSize = nMaxLength
+                end if
+
+        end select
+   
+        if IsExcluded(field.type) then
+            sReturn = sReturn & _
+                "<img src=""" & m_sIMAGEDir & "exclude.gif"" border=""0"" alt=""" & STR_NON_VIEW & """ " & _
+                "width=""16"" height=""16"">"
+        else
+            if (field.type = adLongVarChar) or (field.type = adLongVarWChar) then
+                ' MEMO -> TEXTAREA
+                sReturn = sReturn & "<textarea name=""" & field.name & """ cols=" & CStr(nMemoCols) & _
+                    " rows=" & CStr(nMemoRows) & ">" & sValue & "</textarea>"
+            elseif (field.type = adBoolean) then
+                ' -> CHECKBOX
+                sChecked = ""
+                if CBool(field.value) then sChecked = " checked"
+                sReturn = sReturn & "<input type=""checkbox"" name=""" & field.name & """" & sChecked & ">" 
+            else
+                ' -> INPUT
+                sReturn = sReturn & "<input type=""text"" name=""" & field.name & """ maxlength=" & _       
+                    CStr(nMaxLength) & " size=" & CStr(nSize) & " value=""" & sValue & """>"
+            end if 
+
+            ' put error message into form
+            if IsErrorField(field.name) then
+                sReturn = sReturn & "&nbsp;" & GetErrorDescription(field.name)
+            end if 
+
+        end if 
+    end if 
+
+    sReturn = sReturn & "</td>" & vbCrLf
+
+    if m_bViewDefinitions then
+        sReturn = sReturn & _
+            "<td class=""ute_form_def"">" & GetTypeString(field.type) & "</td>" & _
+            "<td class=""ute_form_def"">" & GetAttributesString(field.attributes) & "</td>"
+    end if
+
+    sReturn = sReturn & "</tr>" & vbCrLf
+
+    InsertFieldForm = sReturn
+
+End Function
+
+
+''--------------------------------------------------------------------------
+'' Name:     InsertIdentFields
+''           =================
+'' 
+'' Return HTML code for hidden form fields. These fields contain the field
+'' names and values to identify the current record.
+''
+'' Parameter: 
+''      none
+''
+'' return value:
+''      string
+''
+''--------------------------------------------------------------------------
+Private Function InsertIdentFields ()
+    Dim i
+    Dim nCount
+    Dim curField
+    Dim sField, sType, sValue
+    Dim sReturn
+
+    sReturn = ""
+
+    if m_nFormMode <> MD_INSERT then
+
+        ' do we already have some ident fields in form ?
+        if Request.Form(sFormUTEFieldPrefix & sFormIdentField & "1") <> "" then
+            ' yes, so use these values
+            i = 1
+            while Request.Form(sFormUTEFieldPrefix & sFormIdentField & CStr(i)) <> ""
+                sField = Request.Form(sFormUTEFieldPrefix & sFormIdentField & CStr(i))
+                sType  = Request.Form(sFormUTEFieldPrefix & sFormIdentType & CStr(i))
+                sValue = Request.Form(sFormUTEFieldPrefix & sFormIdentValue & CStr(i))
+                sReturn = sReturn & _
+                    "<input type=""hidden"" name=""" & sFormUTEFieldPrefix & sFormIdentField & CStr(i) & """ " & _
+                        "value=""" & sField & """>" & vbCrLf & _
+                    "<input type=""hidden"" name=""" & sFormUTEFieldPrefix & sFormIdentType & CStr(i) & """ " & _
+                        "value=""" & sType & """>" & vbCrLf & _
+                    "<input type=""hidden"" name=""" & sFormUTEFieldPrefix & sFormIdentValue & CStr(i) & """ " & _
+                        "value=""" & sValue & """>" & vbCrLf
+                i = i + 1
+            wend
+        else
+            ' no, create ident fields from primary key fields or all fields
+            nCount = 0
+            if UBound(m_PrimaryKeyFields) > 0 then
+                ' use Primary Keys for identification
+                for i = 1 to UBound(m_PrimaryKeyFields)
+                    set curField = m_RS(m_PrimaryKeyFields(i))
+                    if (not IsExcluded(curField.Type)) and not (IsNull(curField.Value)) then
+                        nCount = nCount + 1
+                        if (curField.Type = adBoolean) then
+                            if curField.value then
+                                sValue = CStr(True)
+                            else
+                                sValue = CStr(False)
+                            end if
+                        else
+                            sValue = CStr(curField.Value)
+                        end if
+                        sReturn = sReturn & _
+                            "<input type=""hidden"" name=""" & sFormUTEFieldPrefix & sFormIdentField & CStr(nCount) & _
+                                """ value=""" & m_PrimaryKeyFields(i) & """>" & vbCrLf & _
+                            "<input type=""hidden"" name=""" & sFormUTEFieldPrefix & sFormIdentType & CStr(nCount) & _
+                                """ value=""" & m_PrimaryKeyTypes(i) & """>" & vbCrLf & _
+                            "<input type=""hidden"" name=""" & sFormUTEFieldPrefix & sFormIdentValue & CStr(nCount) & _
+                                """ value=""" & sValue & """>" & vbCrLf
+                    end if
+                next
+            else
+                ' use all fields for identification
+                for i = 1 to UBound(m_StandardFields)
+                    set curField = m_RS(m_StandardFields(i))
+                    if (not IsExcluded(curField.Type)) and not (IsNull(curField.Value)) then
+                        nCount = nCount + 1
+                        if (curField.Type = adBoolean) then
+                            if curField.value then
+                                sValue = CStr(True)
+                            else
+                                sValue = CStr(False)
+                            end if
+                        else
+                            sValue = CStr(curField.Value)
+                        end if
+                        sReturn = sReturn & _
+                            "<input type=""hidden"" name=""" & sFormUTEFieldPrefix & sFormIdentField & CStr(nCount) & _
+                                """ value=""" & m_StandardFields(i) & """>" & vbCrLf & _
+                            "<input type=""hidden"" name=""" & sFormUTEFieldPrefix & sFormIdentType & CStr(nCount) & _
+                                """ value=""" & m_StandardTypes(i) & """>" & vbCrLf & _
+                            "<input type=""hidden"" name=""" & sFormUTEFieldPrefix & sFormIdentValue & CStr(nCount) & _
+                                """ value=""" & sValue & """>" & vbCrLf
+                    end if
+                next
+            end if 
+        end if 
+    end if
+
+    InsertIdentFields = sReturn
+End Function
+
+
+''--------------------------------------------------------------------------
+'' Name:     InitForm
+''           ========
+'' 
+'' Initialises a recordset for the form. This is either created as a new
+'' (empty) one, or as a copy from the current record from the table view.
+''
+'' Parameter: 
+''      none
+''
+'' return value:
+''      none
+''
+''--------------------------------------------------------------------------
+Private Sub InitForm ()
+
+    Dim s
+
+    ' if cancel button was pressed redirect back to table
+    if Request.Form(sFormUTEFieldPrefix & sFormButton) = STR_CANCEL then
+        s = Request.QueryString
+        s = getLink(m_sUTEScript, s, sParamMode,      CStr(MD_TABLE))
+        s = getLink(m_sUTEScript, s, sParamFormMode,  CStr(DEF_FORM_MODE))
+        s = getLink(m_sUTEScript, s, sParamSubmitted, "0")
+        Response.Redirect s
+    end if
+
+    ' get RecordSet for this form
+    if m_nFormMode = MD_INSERT then
+        ' create new RecordSet
+        Set m_RSForm = Server.CreateObject("ADODB.Recordset")
+        m_RSForm.Open m_sTable, m_DB, adOpenStatic, adLockPessimistic, adCmdTable
+        m_RSForm.AddNew
+    else
+        if not m_bSubmitted then
+            ' identify record by "record" URL param
+            m_RS.Move m_nRecord - 1, adBookmarkFirst
+            Set m_RSForm = m_RS
+        else
+            ' identify record by hidden form fields
+            Set m_RSForm = Server.CreateObject("ADODB.Recordset")
+            m_RSForm.Open getSQLStatement("SELECT *"), m_DB, adOpenStatic, adLockPessimistic, adCmdText
+        end if
+    end if
+
+End Sub
+
+
+''--------------------------------------------------------------------------
+'' Name:     IsFormField
+''           ===========
+'' 
+'' Returns TRUE if thegiven field name is a field on the current submitted form.
+''
+'' Parameter: 
+''      name        name of field
+''
+'' return value:
+''      boolean
+''
+''--------------------------------------------------------------------------
+Private Function IsFormField ( name )
+    Dim bReturn
+    Dim field
+    bReturn = False
+    for each field in Request.Form
+        if (field = name) then bReturn = True
+    next
+    IsFormField = bReturn
+End Function
+
+
+''--------------------------------------------------------------------------
+'' Name:     UpdateRecordSet
+''           ===============
+'' 
+'' Put form values into record set
+''
+'' Parameter: 
+''      rsUpdt      recordset to be updated
+''
+'' return value:
+''      none
+''
+''--------------------------------------------------------------------------
+Private Sub UpdateRecordSet ( byref rsUpdt )
+
+    Dim field
+
+    ' own error handling
+    On Error Resume Next
+
+    'for each field in Request.Form
+    for each field in rsUpdt.fields
+
+        select case field.type
+            case adBoolean
+                rsUpdt(field.name) = (Request.Form(field.name) = "on")
+            case else
+                ' is this a field being set in the form ?
+                if IsFormField(field.name) then
+                    if Request.Form(field.name) = "" then
+                        rsUpdt(field.name) = NULL
+                    else
+                        rsUpdt(field.name) = Request.Form(field.name)
+                    end if
+                end if
+        end select
+    
+        if Err <> 0 then PutError field.name
+
+    next
+
+    if UBound(m_ErrorField) = 0 then 
+        ' make update permanent in DB
+        rsUpdt.Update
+        if Err <> 0 then PutError ""
+    end if
+
+    ' disable own error handling
+    On Error Goto 0
+
+End Sub
+
+
+''--------------------------------------------------------------------------
+'' Name:     Update
+''           ======
+'' 
+'' Updates record in database. If successful redirect to ute page in table
+'' view mode (else do not redirect, this will lead to display the form and
+'' show the error)
+''
+'' Parameter: 
+''      none
+''
+'' return value:
+''      none
+''
+''--------------------------------------------------------------------------
+Private Sub Update
+    Dim s
+    
+    ' initialise form
+    InitForm
+
+    if m_bSubmitted then
+
+        select case m_nFormMode
+            case MD_INSERT
+                ' Insert New Record
+                UpdaterecordSet m_RSForm
+
+            case MD_EDIT
+                ' Edit Record
+                UpdaterecordSet m_RSForm
+
+            case MD_DELETE
+                ' Delete Record
+                m_DB.Execute getSQLStatement("DELETE")
+        end select
+
+        ' If everything is ok return to table view
+        if UBound(m_ErrorField) = 0 then 
+            s = Request.QueryString
+            s = getLink(m_sUTEScript, s, sParamMode,      CStr(MD_TABLE))
+            s = getLink(m_sUTEScript, s, sParamFormMode,  CStr(DEF_FORM_MODE))
+            s = getLink(m_sUTEScript, s, sParamSubmitted, "0")
+            if m_nPageSize = m_RS.RecordCount-1 then
+                s = getLink(m_sUTEScript, s, sParamPageSize, CStr(m_RS.RecordCount-1))
+            end if
+            Response.Redirect s
+        end if
+
+    end if
+
+End Sub
+
+
+''--------------------------------------------------------------------------
+'' Name:     getFormToolBar
+''           ==============
+'' 
+'' Returns HTML code for the toolbar on top of the form.
+''
+'' Parameter: 
+''      none
+''
+'' return value:
+''      string      HTML code
+''
+''--------------------------------------------------------------------------
+Private Function getFormToolBar( nColCount )
+    Dim s, sValue, sSubmitted
+
+    sValue = ""
+
+    if m_bShowDefLink then
+
+        sValue = "<tr><td class=""ute_toolbar"" colspan=""" & CStr(nColCount)& """>" & vbCrLf
+
+        s = Request.QueryString
+
+        ' show/hide field definitions
+        if (m_bShowDefLink) and (m_RS.RecordCount > 0) then
+            if m_bViewDefinitions then
+                if m_bSubmitted then
+                    sSubmitted = "1"
+                else
+                    sSubmitted = "0"
+                end if
+                s = getLink(m_sUTEScript, s, sParamSubmitted, sSubmitted)
+                s = getLink(m_sUTEScript, s, sParamDefs, "0")
+                sValue = sValue & _
+                    "<a href=""" & s & """ " & _
+                        "onMouseover=""SelectImage('Definition_down','Definition');""" & _
+                        "onMouseout=""SelectImage('Definition_down_sel','Definition');"">" & _
+                            "<img src=""" & m_sIMAGEDir & "definition_down_sel.gif"" name=""Definition"" border=""0"" " & _
+                            "height=""25"" width=""25"" title=""" & STR_DEF_HIDE & """>" & _
+                    "</a>" & vbCrLf
+            else
+                s = getLink(m_sUTEScript, s, sParamDefs, "1")
+                s = getLink(m_sUTEScript, s, sParamSubmitted, "0")
+                sValue = sValue & _
+                    "<a href=""" & s & """ " & _
+                        "onMouseover=""SelectImage('Definition_up','Definition');""" & _
+                        "onMouseout=""SelectImage('Definition_normal','Definition');"">" & _
+                            "<img src=""" & m_sIMAGEDir & "definition.gif"" name=""Definition"" border=""0"" " & _
+                            "height=""25"" width=""25"" title=""" & STR_DEF_SHOW & """>" & _
+                    "</a>" & vbCrLf
+            end if
+        end if
+
+        sValue = sValue & "</td></tr>" & vbCrLf
+
+    end if
+
+    getFormToolBar = sValue
+
+End Function
+
+
+''--------------------------------------------------------------------------
+'' Name:     buildHTML_Form
+''           ==============
+'' 
+'' Creates entire UTE HTML code for form view mode.
+''
+'' Parameter: 
+''      none
+''
+'' return value:
+''      string      HTML code
+''
+''--------------------------------------------------------------------------
+Private Function buildHTML_Form()
+    Dim i, nColCount
+    Dim s, sValue, sSubmitted
+
+    if m_bViewDefinitions then
+        nColCount = 4
+    else
+        nColCount = 2
+    end if
+
+    s = Request.QueryString
+    s = getLink(m_sUTEScript, s, sParamSubmitted, "1")
+
+    ' add javascript code
+    sValue = _
+        "<script language=""JavaScript"">" & vbCrLf & _
+        "<!--" & vbCrLf & _
+        "   browserName = navigator.appName;" & vbCrLf & _
+        "   browserVer = parseInt(navigator.appVersion);" & vbCrLf & _
+        vbCrLf & _
+        "   if (browserName == ""Netscape"" && browserVer >= 3)" & vbCrLf & _
+        "   {" & vbCrLf & _
+        "   version = ""n3"";" & vbCrLf & _
+        "   }" & vbCrLf & _
+        "   else if (browserName == ""Microsoft Internet Explorer"" && browserVer >= 3)" & vbCrLf & _
+        "   {" & vbCrLf & _
+        "   version = ""n3"";" & vbCrLf & _
+        "   }" & vbCrLf & _
+        "   else version = ""n2"";" & vbCrLf & _
+        vbCrLf & _
+        "   if (version == ""n3"")" & vbCrLf & _
+        "   {" & vbCrLf & _
+        "       // create image objects" & vbCrLf & _
+        "       Definition_normal       = new Image();" & vbCrLf & _
+        "       Definition_up           = new Image();" & vbCrLf & _
+        "       Definition_down         = new Image();" & vbCrLf & _
+        "       Definition_down_sel     = new Image();" & vbCrLf & _
+        vbCrLf & _
+        "       // assign actual images to image objects" & vbCrLf & _
+        "       Definition_normal.src   = """ & m_sIMAGEDir & "definition.gif"";" & vbCrLf & _
+        "       Definition_up.src       = """ & m_sIMAGEDir & "definition_up.gif"";" & vbCrLf & _
+        "       Definition_down.src     = """ & m_sIMAGEDir & "definition_down.gif"";" & vbCrLf & _
+        "       Definition_down_sel.src = """ & m_sIMAGEDir & "definition_down_sel.gif"";" & vbCrLf & _
+
+        "   }" & vbCrLf & _
+        "" & vbCrLf & _
+        "   function SelectImage(img_src, img_name)" & vbCrLf & _
+        "   {" & vbCrLf & _
+        "       if (version == ""n3"")" & vbCrLf & _
+        "       {" & vbCrLf & _
+        "           imgOn = eval(img_src + "".src"");" & vbCrLf & _
+        "           document [img_name].src = imgOn;" & vbCrLf & _
+        "       }" & vbCrLf & _
+        "   }" & vbCrLf & _
+        "//-->" & vbCrLf & _
+        "</script>" & vbCrLf & _
+        "<p><span class=""ute_headline"">" & m_sTable & "</span></p>" & vbCrLf & _
+        "<p><span class=""ute_subheadline"">" & m_sHeadline & "</span></p>" & vbCrLf
+
+    for i = 1 to UBound(m_ErrorField)
+        if m_ErrorField(i) = "" then
+            sValue = sValue & _
+                "<p><span class=""ute_form_error"">" & _
+                m_ErrorMessage(i) & _
+                "</span></p>" & vbCrLf
+        end if
+    next
+
+    sValue = sValue & _
+        "<form method=""post"" action=""" & s & """>" & vbCrLf & _
+        InsertIdentFields & vbCrLf & _
+        "<table class=""ute_form"">" & vbCrLf
+
+    ' add toolbar
+    sValue = sValue & getFormToolBar(nColCount) & vbCrLf
+
+    ' insert all primary keys
+    for i = 1 to UBound(m_PrimaryKeyFields)
+        sValue = sValue & InsertFieldForm (m_RSForm.fields(m_PrimaryKeyFields(i)), True)
+    next
+
+    ' insert all other fields
+    for i = 1 to UBound(m_StandardFields)
+        sValue = sValue & InsertFieldForm (m_RSForm.fields(m_StandardFields(i)), False)
+    next
+
+    sValue = sValue & _
+        "<tr>" & vbCrLf & _
+        "<td colspan=""" & CStr(nColCount) & """>" & vbCrLf & _
+        "<br><br>&nbsp;" & vbCrLf & _
+        "<input type=""submit"" name=""" & sFormUTEFieldPrefix & sFormButton & """ class=""ute_btn_ok"" " & _
+                "value=""" & STR_OK & """>" & vbCrLf & _
+        "&nbsp;" & vbCrLf & _
+        "<input type=""submit"" name=""" & sFormUTEFieldPrefix & sFormButton & """ class=""ute_btn_cancel"" " & _
+                "value=""" & STR_CANCEL & """>" & vbCrLf & _
+        "&nbsp;" & vbCrLf & _
+        "</td>" & vbCrLf & _
+        "</tr>" & vbCrLf
+
+    sValue = sValue & _
+        "</table>" & vbCrLf & _
+        "</from>"
+
+    buildHTML_Form = sValue
+
+End Function
+
+
+%>

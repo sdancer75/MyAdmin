@@ -1,0 +1,96 @@
+<%
+'---------------------------------------------------------------------------
+'
+'   Project:    UTE - (U)niversal ASP (T)able (E)ditor
+'
+'   Module:     UTE class - Export Functions
+'
+'   Version:    3.00
+'
+'   Comments:   This module does the following things:
+'                   1. defines all functions being needed in
+'                      export mode
+'
+'---------------------------------------------------------------------------
+'
+'   (c) in 2000-2003 by Tom Wellige                    
+'   http://www.wellige.com  mailto:tom@wellige.com     
+'                                               
+'   This project is released under the "GNU General Public License (GPL)" 
+'   http://www.gnu.org/licenses/gpl.html
+'
+'   and is maintained on SourceForge at
+'   http://sourceforge.net/projects/ute-asp/
+'
+'   and can also be found on CodeProject at
+'   http://www.codeproject.com/asp/ute.asp
+'
+'---------------------------------------------------------------------------
+
+
+''--------------------------------------------------------------------------
+'' Name:     ExportToStream
+''           ==============
+'' 
+'' Writes all data in current recordset as comma separated text to the response
+'' stream.
+''
+'' Parameter: 
+''      none
+''
+'' return value:
+''      none
+''
+''--------------------------------------------------------------------------
+Private Sub ExportToStream ()
+
+    Dim i
+    Dim sLine
+
+    ' Clear out the existing HTTP header information
+    Response.Buffer = TRUE
+    Response.Clear
+    Response.ContentType = "text/csv"
+    Response.AddHeader "Content-Disposition", "inline;filename=" & m_sTable & ".csv"
+
+
+    ' set RecordSet to get all data
+    m_RS.PageSize     = m_RS.RecordCount
+    m_RS.AbsolutePage = 1
+    m_RS.MoveFirst
+
+    ' write Header
+    sLine = ""
+    for i = 1 to UBound(m_PrimaryKeyFields)
+        sLine = sLine & DEF_EXPORT_VAL & m_PrimaryKeyFields(i) & DEF_EXPORT_VAL & DEF_EXPORT_SEP
+    next
+
+    for i = 1 to UBound(m_StandardFields)
+        sLine = sLine & DEF_EXPORT_VAL & m_StandardFields(i) & DEF_EXPORT_VAL & DEF_EXPORT_SEP
+    next
+
+    if sLine <> "" then
+        sLine = Left(sLine, Len(sLine)-1)
+        Response.Write sLine & vbCrLf
+    end if 
+
+    Do Until m_RS.EOF
+        sLine = ""
+        for i = 1 to UBound(m_PrimaryKeyFields)
+            sLine = sLine & DEF_EXPORT_VAL & m_RS(m_PrimaryKeyFields(i)) & DEF_EXPORT_VAL & DEF_EXPORT_SEP
+        next
+        for i = 1 to UBound(m_StandardFields)
+            sLine = sLine & DEF_EXPORT_VAL & m_RS(m_StandardFields(i)) & DEF_EXPORT_VAL & DEF_EXPORT_SEP
+        next
+        if sLine <> "" then
+            sLine = Left(sLine, Len(sLine)-1)
+            Response.Write sLine & vbCrLf
+        end if 
+        m_RS.MoveNext
+    Loop
+
+    Response.End
+
+End Sub
+
+%>

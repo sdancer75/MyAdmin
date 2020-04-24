@@ -1,0 +1,133 @@
+A
+{
+    FONT-SIZE: 8pt;
+    COLOR: #003399;
+    FONT-FAMILY: Arial, Helvetica, sans serif;
+    TEXT-DECORATION: none
+}
+A:hover
+{
+    TEXT-DECORATION: underline
+}
+TD
+{
+    FONT-SIZE: 8pt;
+    COLOR: #333333;
+    FONT-FAMILY: Arial, Helvetica, sans serif
+}
+TH
+{
+    FONT-SIZE: 8pt;
+    COLOR: #333333;
+    FONT-FAMILY: Arial, Helvetica, sans serif
+}
+P
+{
+    FONT-SIZE: 10pt;
+    COLOR: black;
+    FONT-FAMILY: "Verdana"
+}
+INPUT
+{
+    FONT-SIZE: 8pt;
+    COLOR: #333333;
+    FONT-FAMILY: Arial, Helvetica, sans serif
+}
+SELECT
+{
+    FONT-SIZE: 8pt;
+    COLOR: #333333;
+    FONT-FAMILY: Arial, Helvetica, sans serif
+}
+TEXTAREA
+{
+    FONT-SIZE: 8pt;
+    COLOR: #333333;
+    FONT-FAMILY: Arial, Helvetica, sans serif
+}
+LI
+{
+    FONT-SIZE: 9pt;
+    COLOR: #cc3300;
+    LINE-HEIGHT: 1.5em;
+    FONT-FAMILY: Arial, Helvetica, sans serif;
+    LIST-STYLE-TYPE: square;
+    ALIGN: left
+}
+INPUT.button
+{
+    FONT-WEIGHT: bold;
+    WIDTH: 50pt;
+    CURSOR: hand;
+    COLOR: #ffffff;
+    BACKGROUND-COLOR: #c88333
+}
+INPUT.buttonM
+{
+    FONT-WEIGHT: bold;
+    WIDTH: 65pt;
+    CURSOR: hand;
+    COLOR: #ffffff;
+    BACKGROUND-COLOR: #c88333
+}
+.search
+{
+    BORDER-RIGHT: black 1px solid;
+    PADDING-RIGHT: 5pt;
+    BORDER-TOP: black 1px solid;
+    PADDING-LEFT: 5pt;
+    PADDING-BOTTOM: 5pt;
+    BORDER-LEFT: black 1px solid;
+    PADDING-TOP: 5pt;
+    BORDER-BOTTOM: black 1px solid;
+    BACKGROUND-COLOR: #e5e5e5
+}
+.shade
+{
+    COLOR: #333333;
+    BACKGROUND-COLOR: #ffe4a2
+}
+.blackshade
+{
+    FONT-WEIGHT: bold;
+    COLOR: #ffffff;
+    BACKGROUND-COLOR: #c88333
+}
+.blackshade:hover
+{
+    COLOR: #ffcc00
+}
+.rowselected
+{
+    COLOR: #333333;
+    BACKGROUND-COLOR: #dbeaf5
+}
+.message
+{
+    FONT-WEIGHT: bold;
+    FONT-SIZE: 8pt;
+    COLOR: #cc3300;
+    FONT-FAMILY: Arial, Helvetica, sans serif
+}
+.SELECTS
+{
+    BORDER-RIGHT: gray 1px solid;
+    BORDER-TOP: gray 1px solid;
+    FONT-SIZE: 9pt;
+    BORDER-LEFT: gray 1px solid;
+    WIDTH: 57px;
+    COLOR: #333333;
+    BORDER-BOTTOM: gray 1px solid;
+    FONT-FAMILY: Arial, Helvetica, sans serif
+}
+H1
+{
+    FONT-SIZE: 13pt;
+    FONT-FAMILY: Arial, Helvetica, sans serif
+}
+.smalltext
+{
+    FONT-SIZE: 8pt;
+    COLOR: #333333;
+    FONT-FAMILY: Tahoma
+}
